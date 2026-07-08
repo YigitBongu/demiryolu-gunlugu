@@ -34,7 +34,7 @@ TRT = dt.timezone(dt.timedelta(hours=3))            # Türkiye saati
 NOW_UTC = dt.datetime.now(dt.timezone.utc)
 NEWS_WINDOW = dt.timedelta(hours=26)                # haberler: son ~1 gün
 PAPER_WINDOW = dt.timedelta(days=3)                 # makaleler: son 3 gün
-MAX_ITEMS_TO_LLM = 110                              # LLM'e gidecek azami kayıt
+MAX_ITEMS_TO_LLM = 70                              # LLM'e gidecek azami kayıt
 CLAUDE_MODEL = "claude-haiku-4-5"                   # (ücretli yol, ~1$/ay) dilersen: claude-sonnet-4-6
 GEMINI_MODEL = "gemini-2.5-flash"                   # (ücretsiz yol) Google AI Studio anahtarıyla
 SEEN_FILE = "seen.json"                             # mükerrer engelleme durumu
@@ -279,7 +279,7 @@ def summarize_with_gemini(prompt: str) -> "str | None":
     try:
         r = requests.post(url, timeout=180, json={
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": 4000},
+            "generationConfig": {"maxOutputTokens": 8000},
         })
         r.raise_for_status()
         cands = r.json().get("candidates", [])
