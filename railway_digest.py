@@ -34,7 +34,7 @@ TRT = dt.timezone(dt.timedelta(hours=3))            # Türkiye saati
 NOW_UTC = dt.datetime.now(dt.timezone.utc)
 NEWS_WINDOW = dt.timedelta(hours=26)                # haberler: son ~1 gün
 PAPER_WINDOW = dt.timedelta(days=3)                 # makaleler: son 3 gün
-MAX_ITEMS_TO_LLM = 70                              # LLM'e gidecek azami kayıt
+MAX_ITEMS_TO_LLM = 70                               # LLM'e gidecek azami kayıt
 CLAUDE_MODEL = "claude-haiku-4-5"                   # (ücretli yol, ~1$/ay) dilersen: claude-sonnet-4-6
 GEMINI_MODEL = "gemini-2.5-flash"                   # (ücretsiz yol) Google AI Studio anahtarıyla
 SEEN_FILE = "seen.json"                             # mükerrer engelleme durumu
@@ -325,10 +325,14 @@ AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
          "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 
 
-def wrap_page(body_html: str, item_count: int, footer_extra: str = "") -> str:
+def wrap_page(body_html: str, item_count: int, footer_extra: str = "",
+              show_nav: bool = False) -> str:
     """Bülten gövdesini tam HTML sayfasına sarar (site ve e-posta ortak kullanır)."""
     bugun = NOW_UTC.astimezone(TRT)
     tarih = f"{bugun.day} {AYLAR[bugun.month - 1]} {bugun.year}"
+    # Üst navigasyon yalnızca web sitesinde gösterilir (e-postada değil)
+    nav = ('<p style="font-size:14px;margin:0 0 16px"><a href="index.html">Bugün</a> '
+           '&middot; <a href="arsiv.html">🗂️ Tüm Arşiv</a></p>') if show_nav else ""
     return f"""<!DOCTYPE html>
 <html lang="tr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -336,10 +340,37 @@ def wrap_page(body_html: str, item_count: int, footer_extra: str = "") -> str:
 <body style="font-family:Georgia,'Times New Roman',serif;max-width:680px;margin:auto;padding:12px;color:#222;line-height:1.55">
 <h1 style="border-bottom:3px solid #1a5276;padding-bottom:8px;margin-bottom:4px">🚆 Demiryolu Günlüğü</h1>
 <p style="color:#777;margin-top:0">{tarih} &middot; {item_count} yeni kayıt tarandı</p>
+{nav}
 {body_html}
 <hr style="border:none;border-top:1px solid #ddd;margin-top:24px">
 {footer_extra}
 <p style="font-size:12px;color:#999">Bu bülten GitHub Actions üzerinde otomatik üretilmiştir.</p>
+</body></html>"""
+
+
+def render_archive_page() -> str:
+    """Tüm arşivlenmiş günleri tarihe göre listeleyen ayrı bir sayfa üretir."""
+    try:
+        files = sorted((f for f in os.listdir(ARCHIVE_DIR) if f.endswith(".html")),
+                       reverse=True)
+    except FileNotFoundError:
+        files = []
+    if files:
+        satirlar = "\n".join(
+            f'<li style="margin:6px 0"><a href="arsiv/{f}">{f[:-5]}</a></li>'
+            for f in files)
+        liste = f'<ul style="list-style:none;padding:0;font-size:16px">{satirlar}</ul>'
+    else:
+        liste = "<p>Henüz arşivlenmiş bülten yok.</p>"
+    return f"""<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🗂️ Demiryolu Günlüğü — Arşiv</title></head>
+<body style="font-family:Georgia,'Times New Roman',serif;max-width:680px;margin:auto;padding:12px;color:#222;line-height:1.55">
+<h1 style="border-bottom:3px solid #1a5276;padding-bottom:8px">🗂️ Arşiv</h1>
+<p style="font-size:14px"><a href="index.html">← Bugünün bültenine dön</a></p>
+<p style="color:#777">Geçmiş günlerin bültenleri (en yeni üstte):</p>
+{liste}
 </body></html>"""
 
 
@@ -407,11 +438,17 @@ def main() -> None:
     os.makedirs(ARCHIVE_DIR, exist_ok=True)
     open(os.path.join(SITE_DIR, ".nojekyll"), "w").close()
     tarih_dosya = NOW_UTC.astimezone(TRT).strftime("%Y-%m-%d")
+    # Önce bugünün arşiv kopyasını yaz (arşiv sayfası ve alt-bilgi bunu görsün)
     with open(os.path.join(ARCHIVE_DIR, tarih_dosya + ".html"), "w", encoding="utf-8") as f:
-        f.write(wrap_page(body, len(fresh)))
+        f.write(wrap_page(body, len(fresh), show_nav=True))
+    # Ana sayfa: üstte navigasyon + altta son 30 günün hızlı linkleri
     with open(os.path.join(SITE_DIR, "index.html"), "w", encoding="utf-8") as f:
-        f.write(wrap_page(body, len(fresh), footer_extra=archive_links_html()))
-    print(f"Site güncellendi: {SITE_DIR}/index.html (+ arşiv: {tarih_dosya}.html)")
+        f.write(wrap_page(body, len(fresh),
+                          footer_extra=archive_links_html(), show_nav=True))
+    # Ayrı, tam arşiv sayfası (tüm günler)
+    with open(os.path.join(SITE_DIR, "arsiv.html"), "w", encoding="utf-8") as f:
+        f.write(render_archive_page())
+    print(f"Site güncellendi: index.html + arsiv.html (+ arşiv: {tarih_dosya}.html)")
 
     # 2) E-POSTA — opsiyonel: Gmail secret'ları tanımlıysa gönderilir
     if os.environ.get("GMAIL_ADDRESS") and os.environ.get("GMAIL_APP_PASSWORD"):
