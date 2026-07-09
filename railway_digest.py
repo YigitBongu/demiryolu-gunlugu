@@ -279,7 +279,12 @@ def summarize_with_gemini(prompt: str) -> "str | None":
     try:
         r = requests.post(url, timeout=180, json={
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": 8000},
+            "generationConfig": {
+                "maxOutputTokens": 8000,
+                # Gemini 2.5 Flash'te "düşünme" varsayılan açık ve token bütçesini
+                # yiyor; 0 yaparak kapatıyoruz ki tüm bütçe bültene gitsin.
+                "thinkingConfig": {"thinkingBudget": 0},
+            },
         })
         r.raise_for_status()
         cands = r.json().get("candidates", [])
