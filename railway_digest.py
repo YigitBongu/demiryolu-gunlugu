@@ -214,7 +214,9 @@ Kurallar:
 2. Demiryoluyla ilgisiz kayıtları tamamen çıkar (savunma, otomobil, model tren, mecazi kullanımlar vb.).
 3. Başlıkları Türkçeye çevir; her madde için 1-2 cümlelik Türkçe özet yaz.
 4. Sana verilenler dışında hiçbir bilgi veya haber UYDURMA; linkleri aynen koru.
-5. Şu bölümleri bu sırayla üret (bir bölümde madde yoksa tek satır "Bugün öne çıkan gelişme yok." yaz):
+5. Aşağıdaki ALTI bölümün HEPSİNİ, bu sırayla ve HER ZAMAN üret. Bir bölüme ait
+   hiç kayıt yoksa başlığı yine yaz ve altına tek satır: "Bugün öne çıkan gelişme yok."
+   Hiçbir bölümü, madde sayısı azaldı diye atlama; başlığı asla silme.
    <h2>🔦 Öne Çıkanlar</h2>  (tüm kayıtlar içinden en önemli 4-5 gelişme)
    <h2>🇹🇷 Türkiye</h2>
    <h2>🌍 Dünya</h2>
@@ -223,7 +225,12 @@ Kurallar:
    <h2>🛰️ Radar: Yapı Merkezi &amp; Frankofon Afrika</h2>
 6. Madde biçimi:
    <p><a href="LINK"><b>Türkçe başlık</b></a><br>1-2 cümlelik özet. <i>(Kaynak)</i></p>
-7. Toplamda en fazla ~25 madde. Yanıt olarak SADECE HTML gövdesi döndür; markdown, açıklama veya kod bloğu işareti kullanma.
+7. Madde dağılımı — haber bölümleri (Türkiye, Dünya) uzun olabilir ama şu iki
+   bölümü ASLA haber bolluğu yüzünden kırpma: "Akademik" bölümünde ilgili tüm
+   makaleleri (en çok 6), "Radar" bölümünde ilgili tüm kayıtları (en çok 6) mutlaka
+   göster. Bu iki bölüm senin için en değerli olanlar; öncelikleri yüksek.
+   Türkiye ve Dünya bölümlerinde en fazla 8'er madde yeter. Yanıt olarak SADECE HTML
+   gövdesi döndür; markdown, açıklama veya kod bloğu işareti kullanma.
 
 Ham kayıtlar:
 {kayitlar}
@@ -231,9 +238,15 @@ Ham kayıtlar:
 
 
 def build_prompt(items: list) -> str:
+    # Modele giden kaydı MAX_ITEMS_TO_LLM ile sınırlıyoruz; ama düz "ilk N" almak
+    # akademik ve radar kayıtlarını (listenin sonunda oldukları için) kesebiliyor.
+    # Bu yüzden önce bu değerli-ama-az bölümleri garanti ayırıp kalanı haberle dolduruyoruz.
+    oncelikli = [i for i in items if i["kategori"] in ("akademik", "radar")]
+    digerleri = [i for i in items if i["kategori"] not in ("akademik", "radar")]
+    secilen = (oncelikli + digerleri)[:MAX_ITEMS_TO_LLM]
     return PROMPT_SABLONU.format(
         tarih=NOW_UTC.astimezone(TRT).strftime("%d.%m.%Y"),
-        kayitlar=json.dumps(items[:MAX_ITEMS_TO_LLM], ensure_ascii=False),
+        kayitlar=json.dumps(secilen, ensure_ascii=False),
     )
 
 
