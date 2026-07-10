@@ -2,9 +2,13 @@ name: Demiryolu Günlüğü
 
 on:
   schedule:
-    # GitHub cron UTC ile çalışır: 03:47 UTC = 06:47 Türkiye saati.
-    # Not: GitHub zamanlanmış işleri ±15-30 dk geciktirebilir; tam dakika garantisi yoktur.
-    - cron: "47 3 * * *"
+    # GitHub cron UTC ile çalışır. GitHub ücretsiz zamanlanmış işleri yoğun
+    # saatlerde (özellikle saat başları) geciktirir veya atlar; bu yüzden:
+    #  (1) yuvarlak olmayan bir dakika seçtik (çakışma az),
+    #  (2) güvenlik ağı olarak iki kez tetikliyoruz — biri atlanırsa diğeri yakalar.
+    # Kod aynı gün ikinci çalışmada "yeni haber yok" deyip zararsız çıkar.
+    - cron: "38 4 * * *"    # 04:38 UTC = 07:38 Türkiye saati (ana çalışma)
+    - cron: "23 6 * * *"    # 06:23 UTC = 09:23 Türkiye saati (yedek çalışma)
   workflow_dispatch: {}   # Actions sekmesinden elle tetikleme (test için)
 
 permissions:
